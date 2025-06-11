@@ -3,99 +3,68 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Triggers on version tags like v1.0.0, v0.1.0, etc.
 
+# THIS IS THE KEY FIX - Add permissions
 permissions:
-  contents: write
+  contents: write  # Allows creating releases and uploading assets
+  packages: write  # Optional: if you want to publish packages
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            output_name: stackmatch-linux-amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-            output_name: stackmatch-darwin-amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
-            output_name: stackmatch-darwin-arm64
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-            output_name: stackmatch-windows-amd64.exe
-
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: Build binary
-        run: go build -ldflags="-s -w" -o ${{ matrix.output_name }} .
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-
-
-
-      - name: Rename EXE for Installer
-        if: matrix.os == 'windows-latest'
-        run: ren ${{ matrix.output_name }} stackmatch-cli.exe
-
-
-
-      - name: Upload Artifacts (non-Windows)
-        if: matrix.os != 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
-          path: ${{ matrix.output_name }}
-
-      - name: Update Installer Script Version
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          (Get-Content -path "install.iss") -replace "AppVersion=0.0.0", "AppVersion=$version" | Set-Content -path "install.iss"
-          Write-Host "Installer version set to $version"
-
-      - name: Compile Inno Setup installer
-        if: matrix.os == 'windows-latest'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
-        with:
-          path: install.iss
-
-      - name: Upload Artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
-          path: |
-            Output/stackmatch-cli-setup.exe
-
-  release:
-    needs: build
+  build-and-release:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: build-artifacts-*
-          merge-multiple: true
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'  # Use your Go version
+        
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o stackmatch-linux-amd64 .
+        GOOS=darwin GOARCH=amd64 go build -o stackmatch-darwin-amd64 .
+        GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
+        GOOS=windows GOARCH=amd64 go build -o stackmatch-windows-amd64.exe .
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          stackmatch-linux-amd64
+          stackmatch-darwin-amd64
+          stackmatch-darwin-arm64
+          stackmatch-windows-amd64.exe
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/*
-          generate_release_notes: true
+  # Alternative: Use GoReleaser for more advanced builds
+  goreleaser:
+    runs-on: ubuntu-latest
+    if: false  # Set to true if you want to use GoReleaser instead
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

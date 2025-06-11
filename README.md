@@ -18,25 +18,13 @@ This tool is the first step toward building a robust system for managing and rep
 
 ## Installation
 
-### Windows (Recommended)
-
-For the best experience on Windows, we recommend using the official installer, which provides a familiar setup wizard and automatically adds the CLI to your system's PATH.
-
-1.  Go to the [**GitHub Releases**](https://github.com/MRQ67/stackmatch-cli/releases) page.
-2.  Download the `stackmatch-cli-setup.exe` file from the latest release.
-3.  Run the installer and follow the on-screen instructions.
-
-The installer will automatically add `stackmatch-cli` to your system's PATH, so you can run it from any command prompt (like PowerShell or CMD) after installation.
-
-### macOS & Linux (or with Go)
-
-If you are on macOS, Linux, or prefer to use Go directly, you can install the CLI using `go install`:
+To install the StackMatch CLI, you need to have Go installed on your system. You can then use `go install` to build and install the binary:
 
 ```sh
 go install github.com/MRQ67/stackmatch-cli@latest
 ```
 
-Ensure that your Go binary path (typically `$GOPATH/bin` or `$HOME/go/bin`) is included in your system's `PATH` environment variable.
+This will place the `stackmatch-cli` executable in your Go binary path (`$GOPATH/bin`).
 
 ## Usage
 
