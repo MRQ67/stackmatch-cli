@@ -52,18 +52,18 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: ren ${{ matrix.output_name }} stackmatch-cli.exe
 
-      - name: Update Installer Script Version
+      - name: Create Installer with InstallWizard
         if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".Substring(1)
-          (Get-Content -path "install.iss") -replace "AppVersion=0.0.0", "AppVersion=$version" | Set-Content -path "install.iss"
-          Write-Host "Installer version set to $version"
-
-      - name: Compile Inno Setup installer
-        if: matrix.os == 'windows-latest'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
-        with:
-          path: install.iss
+          mkdir staging
+          mv .\stackmatch-cli.exe .\staging\
+          curl -L https://github.com/Yukaru-san/InstallWizard/releases/download/2.1/InstallWizard.exe -o .\staging\InstallWizard.exe
+          cd .\staging
+          .\InstallWizard.exe
+          mv .\Installer.exe ..\stackmatch-cli-setup.exe
+          cd ..
+          mv .\staging\stackmatch-cli.exe .\
 
       - name: Upload Artifacts (non-Windows)
         if: matrix.os != 'windows-latest'
@@ -79,7 +79,7 @@ jobs:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
           path: |
             stackmatch-cli.exe
-            Output/stackmatch-cli-setup.exe
+            stackmatch-cli-setup.exe
 
   release:
     needs: build
