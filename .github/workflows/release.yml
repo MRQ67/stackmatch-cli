@@ -46,9 +46,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
 
-      - name: Set up Inno Setup
-        if: matrix.os == 'windows-latest'
-        uses: Miniong/setup-inno-setup@v1.0.2
+
 
       - name: Update Installer Script Version
         if: matrix.os == 'windows-latest'
@@ -57,12 +55,11 @@ jobs:
           (Get-Content -path "install.iss") -replace "AppVersion=0.0.0", "AppVersion=$version" | Set-Content -path "install.iss"
           Write-Host "Installer version set to $version"
 
-      - name: Compile Windows Installer
+      - name: Compile Inno Setup installer
         if: matrix.os == 'windows-latest'
-        shell: cmd
-        run: |
-          iscc "install.iss"
-          echo "Installer compiled"
+        uses: ImagineBoom/inno-setup-use-action@v1.0.0
+        with:
+          iss-file: install.iss
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
