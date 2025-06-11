@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.21
+    
+    - name: Build binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o stackmatch-linux-amd64 .
+        GOOS=darwin GOARCH=amd64 go build -o stackmatch-darwin-amd64 .
+        GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
+        GOOS=windows GOARCH=amd64 go build -o stackmatch-windows-amd64.exe .
+        
+        # Make them executable
+        chmod +x stackmatch-*
+        
+        # Create checksums
+        sha256sum stackmatch-* > checksums.txt
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          stackmatch-linux-amd64
+          stackmatch-darwin-amd64
+          stackmatch-darwin-arm64
+          stackmatch-windows-amd64.exe
+          checksums.txt
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
