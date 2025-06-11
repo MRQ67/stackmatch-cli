@@ -59,7 +59,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
         with:
-          iss-file: install.iss
+          path: ${{ github.workspace }}/install.iss
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
