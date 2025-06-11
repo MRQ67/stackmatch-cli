@@ -10,7 +10,6 @@ WizardStyle=modern
 OutputBaseFilename=stackmatch-cli-setup
 Compression=lzma2
 SolidCompression=yes
-PrivilegesRequired=admin
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

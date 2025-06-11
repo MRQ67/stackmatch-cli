@@ -81,7 +81,6 @@ jobs:
         with:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
           path: |
-            stackmatch-cli.exe
             Output/stackmatch-cli-setup.exe
 
   release:
