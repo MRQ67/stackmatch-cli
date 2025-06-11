@@ -60,7 +60,7 @@ jobs:
           mv .\stackmatch-cli.exe .\staging\
           curl -L https://github.com/Yukaru-san/InstallWizard/releases/download/2.1/InstallWizard.exe -o .\staging\InstallWizard.exe
           cd .\staging
-          .\InstallWizard.exe
+          .\InstallWizard.exe "StackMatch CLI"
           mv .\Installer.exe ..\stackmatch-cli-setup.exe
           cd ..
           mv .\staging\stackmatch-cli.exe .\
