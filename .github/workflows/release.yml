@@ -65,13 +65,21 @@ jobs:
         with:
           path: install.iss
 
-      - name: Upload Artifacts
+      - name: Upload Artifacts (non-Windows)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
+          path: ${{ matrix.output_name }}
+
+      - name: Upload Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts-${{ matrix.os }}-${{ matrix.goarch }}
           path: |
-            ${{ matrix.output_name }}
-            ${{ matrix.os == 'windows-latest' && 'Output/stackmatch-cli-setup.exe' || '' }}
+            stackmatch-cli.exe
+            Output/stackmatch-cli-setup.exe
 
   release:
     needs: build
