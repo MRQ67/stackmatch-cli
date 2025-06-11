@@ -1,21 +1,28 @@
-name: Release
+name: Build and Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Triggers on version tags like v1.0.0, v0.1.0, etc.
+
+# THIS IS THE KEY FIX - Add permissions
+permissions:
+  contents: write  # Allows creating releases and uploading assets
+  packages: write  # Optional: if you want to publish packages
 
 jobs:
-  release:
+  build-and-release:
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v3
-    
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v4
       with:
-        go-version: 1.21
-    
+        go-version: '1.21'  # Use your Go version
+        
     - name: Build binaries
       run: |
         # Build for multiple platforms
@@ -24,12 +31,6 @@ jobs:
         GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
         GOOS=windows GOARCH=amd64 go build -o stackmatch-windows-amd64.exe .
         
-        # Make them executable
-        chmod +x stackmatch-*
-        
-        # Create checksums
-        sha256sum stackmatch-* > checksums.txt
-    
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
@@ -38,7 +39,32 @@ jobs:
           stackmatch-darwin-amd64
           stackmatch-darwin-arm64
           stackmatch-windows-amd64.exe
-          checksums.txt
         generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Alternative: Use GoReleaser for more advanced builds
+  goreleaser:
+    runs-on: ubuntu-latest
+    if: false  # Set to true if you want to use GoReleaser instead
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
