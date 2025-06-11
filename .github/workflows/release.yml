@@ -48,6 +48,10 @@ jobs:
 
 
 
+      - name: Rename EXE for Installer
+        if: matrix.os == 'windows-latest'
+        run: ren ${{ matrix.output_name }} stackmatch-cli.exe
+
       - name: Update Installer Script Version
         if: matrix.os == 'windows-latest'
         run: |
