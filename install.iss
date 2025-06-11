@@ -6,7 +6,6 @@ AppName=StackMatch CLI
 ; The AppVersion will be passed in from the GitHub Actions workflow
 AppVersion=0.0.0
 DefaultDirName={autopf}\StackMatch
-PrivilegesRequired=admin ; Required to modify system PATH
 OutputBaseFilename=stackmatch-cli-setup
 Compression=lzma2
 SolidCompression=yes
