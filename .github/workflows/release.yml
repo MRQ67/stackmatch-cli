@@ -57,7 +57,7 @@ jobs:
 
       - name: Compile Inno Setup installer
         if: matrix.os == 'windows-latest'
-        uses: ImagineBoom/inno-setup-use-action@v1.0.0
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
         with:
           iss-file: install.iss
 
