@@ -20,10 +20,11 @@ This tool is the first step toward building a robust system for managing and rep
 
 ### Windows (Recommended)
 
-For Windows users, the easiest way to install StackMatch is with the official installer:
+For the best experience on Windows, we recommend using the official installer, which provides a familiar setup wizard and automatically adds the CLI to your system's PATH.
 
-1.  **Download the installer:** Go to the [**GitHub Releases**](https://github.com/MRQ67/stackmatch-cli/releases) page and download the latest `stackmatch-cli-setup.exe` file.
-2.  **Run the installer:** Double-click the downloaded file and follow the on-screen instructions.
+1.  Go to the [**GitHub Releases**](https://github.com/MRQ67/stackmatch-cli/releases) page.
+2.  Download the `stackmatch-cli-setup.exe` file from the latest release.
+3.  Run the installer and follow the on-screen instructions.
 
 The installer will automatically add `stackmatch-cli` to your system's PATH, so you can run it from any command prompt (like PowerShell or CMD) after installation.
 
