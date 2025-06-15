@@ -4,19 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/MRQ67/stackmatch-cli/internal/utils"
+	"github.com/MRQ67/stackmatch-cli/pkg/installer"
 	"github.com/MRQ67/stackmatch-cli/pkg/types"
 	"github.com/spf13/cobra"
 )
 
+var (
+	dryRun bool
+)
+
 var importCmd = &cobra.Command{
 	Use:   "import [filename]",
-	Short: "Show what would be installed from a StackMatch JSON file",
-	Long: `Reads a StackMatch environment file and displays a summary of the tools,
-configurations, and system details it contains. This command is for inspection
-and does not perform any actual installation or modification of your system.`,
-	Args:  cobra.ExactArgs(1),
+	Short: "Import a development environment from a StackMatch JSON file",
+	Long: `Reads a StackMatch environment file and installs the tools and configurations.
+
+By default, this command runs in dry-run mode, showing what would be installed
+without making any changes. Use the --no-dry-run flag to perform the actual installation.`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		inputFile := args[0]
 
@@ -81,10 +88,74 @@ and does not perform any actual installation or modification of your system.`,
 		}
 
 		fmt.Println("--- End of Summary ---")
-		fmt.Println("Note: This is a dry run. No changes have been made to your system.")
+
+		if dryRun {
+			fmt.Println("Note: This is a dry run. No changes have been made to your system.")
+			return
+		}
+
+		// Start the installation process
+		fmt.Println("\nStarting installation...")
+
+		// Detect the best available package manager
+		pm, err := installer.DetectPackageManager()
+		if err != nil {
+			utils.ExitWithError(fmt.Errorf("could not detect a supported package manager: %w", err))
+		}
+
+		fmt.Printf("Using package manager: %s\n", pm.Name())
+
+		// Collect all packages to install
+		var packagesToInstall []string
+
+		// Add tools
+		for tool := range envData.Tools {
+			packagesToInstall = append(packagesToInstall, tool)
+		}
+
+		// Add package managers
+		for pm := range envData.PackageManagers {
+			packagesToInstall = append(packagesToInstall, pm)
+		}
+
+		// Add code editors
+		for editor := range envData.CodeEditors {
+			packagesToInstall = append(packagesToInstall, editor)
+		}
+
+		// Remove duplicates and sort
+		packagesToInstall = uniqueStrings(packagesToInstall)
+
+		// Install packages
+		fmt.Printf("Installing %d packages...\n", len(packagesToInstall))
+		startTime := time.Now()
+
+		err = pm.InstallMultiple(cmd.Context(), packagesToInstall)
+		if err != nil {
+			utils.ExitWithError(fmt.Errorf("failed to install packages: %w", err))
+		}
+
+		elapsed := time.Since(startTime)
+		fmt.Printf("\nInstallation completed in %s\n", elapsed.Round(time.Second))
 	},
 }
 
+// uniqueStrings returns a new slice containing unique strings from the input slice
+func uniqueStrings(input []string) []string {
+	unique := make(map[string]bool)
+	var result []string
+
+	for _, item := range input {
+		if !unique[item] {
+			unique[item] = true
+			result = append(result, item)
+		}
+	}
+
+	return result
+}
+
 func init() {
+	importCmd.Flags().BoolVar(&dryRun, "dry-run", true, "Show what would be installed without making changes")
 	rootCmd.AddCommand(importCmd)
 }

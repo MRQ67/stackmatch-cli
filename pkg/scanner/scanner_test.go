@@ -33,7 +33,7 @@ func TestParseVersion(t *testing.T) {
 		{
 			name:     "Git Version",
 			output:   "git version 2.36.1.windows.1",
-			regex:    regexp.MustCompile(`git version ([\d\.]+)`),
+			regex:    regexp.MustCompile(`git version (\d+(?:\.\d+)*)`),
 			expected: "2.36.1",
 		},
 		{
