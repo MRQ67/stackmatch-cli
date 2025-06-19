@@ -15,7 +15,8 @@ var uploadCmd = &cobra.Command{
 	Use:   "upload",
 	Short: "Scan the current environment and upload it to Supabase",
 	Long: `Scans the local development environment and uploads the configuration to Supabase.
-This requires Supabase URL and API key to be set either via command line flags or environment variables.`,
+This requires authentication and Supabase URL/API key to be set.`,
+	PreRunE: requireAuth,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Initialize Supabase client with config values
 		supabaseClient, err := supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseAPIKey)

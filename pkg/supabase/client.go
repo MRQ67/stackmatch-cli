@@ -13,19 +13,17 @@ import (
 
 // Client represents a Supabase client for the StackMatch CLI
 type Client struct {
-	client *supabase.Client
+	*supabase.Client
 }
 
 // NewClient creates a new Supabase client
-func NewClient(url, apiKey string) (*Client, error) {
-	supabaseClient, err := supabase.NewClient(url, apiKey, &supabase.ClientOptions{})
+func NewClient(url, key string) (*Client, error) {
+	client, err := supabase.NewClient(url, key, &supabase.ClientOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Supabase client: %w", err)
 	}
 
-	return &Client{
-		client: supabaseClient,
-	}, nil
+	return &Client{client}, nil
 }
 
 // SaveEnvironment saves an environment to Supabase
@@ -54,7 +52,7 @@ func (c *Client) SaveEnvironment(ctx context.Context, env *types.EnvironmentData
 
 	// Try to insert the data
 	var result []map[string]interface{}
-	_, err = c.client.From("environments").
+	_, err = c.From("environments").
 		Insert(insertData, false, "", "", "*").
 		ExecuteTo(&result)
 
@@ -75,7 +73,7 @@ func (c *Client) SaveEnvironment(ctx context.Context, env *types.EnvironmentData
 
 	// If we couldn't get the ID from the result, try to fetch the most recent environment
 	var dbEnvs []map[string]interface{}
-	_, err = c.client.From("environments").
+	_, err = c.From("environments").
 		Select("id", "", false).
 		Order("created_at", nil).
 		Limit(1, "").
@@ -112,7 +110,7 @@ func (c *Client) GetEnvironment(ctx context.Context, id string) (*types.Environm
 	}
 
 	// Select only the data column and filter by ID
-	_, err := c.client.From("environments").
+	_, err := c.From("environments").
 		Select("data", "", false).
 		Eq("id", id).
 		ExecuteTo(&rows)
@@ -138,7 +136,7 @@ func (c *Client) GetEnvironment(ctx context.Context, id string) (*types.Environm
 func (c *Client) ListEnvironments(ctx context.Context) ([]types.EnvironmentData, error) {
 	var result []types.EnvironmentData
 
-	_, err := c.client.From("environments").Select("*", "", false).ExecuteTo(&result)
+	_, err := c.From("environments").Select("*", "", false).ExecuteTo(&result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list environments from Supabase: %w", err)
 	}

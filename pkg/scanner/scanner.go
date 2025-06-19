@@ -100,7 +100,7 @@ type Executable struct {
 }
 
 // detectExecutables is a generic helper to find tools, package managers, etc.
-func detectExecutables(categoryName string, executables []Executable, dataMap map[string]string) {
+func detectExecutables(executables []Executable, dataMap map[string]string) {
 	for _, exe := range executables {
 		if _, err := exec.LookPath(exe.Command); err != nil {
 			continue // Command not found in PATH, skip
@@ -204,7 +204,7 @@ func DetectPackageManagers(envData *types.EnvironmentData) {
 		)
 	}
 
-	detectExecutables("Package Managers", executables, envData.PackageManagers)
+	detectExecutables(executables, envData.PackageManagers)
 }
 
 // DetectProgrammingLanguages finds common programming languages.
@@ -222,7 +222,7 @@ func DetectProgrammingLanguages(envData *types.EnvironmentData) {
 		{Name: "Node.js", Command: "node", VersionArg: "--version", VersionRegex: regexp.MustCompile(`v?([\d\.]+)`)},
 		{Name: "Python", Command: "python", VersionArg: "--version", VersionRegex: regexp.MustCompile(`Python ([\d\.]+)`)},
 		{Name: "Python 3", Command: "python3", VersionArg: "--version", VersionRegex: regexp.MustCompile(`Python ([\d\.]+)`)},
-		{Name: "Ruby", Command: "ruby", VersionArg: "--version", VersionRegex: regexp.MustCompile(`ruby ([\d\.p]+)`)},
+		{Name: "Ruby", Command: "ruby", VersionArg: "--version", VersionRegex: regexp.MustCompile(`ruby ([\d\.]+)`)},
 		{Name: "PHP", Command: "php", VersionArg: "--version", VersionRegex: regexp.MustCompile(`PHP ([\d\.]+)`)},
 		{Name: "Perl", Command: "perl", VersionArg: "--version", VersionRegex: regexp.MustCompile(`v([\d\.]+)`)},
 		{Name: "Lua", Command: "lua", VersionArg: "-v", VersionRegex: regexp.MustCompile(`Lua ([\d\.]+)`)},
@@ -249,7 +249,7 @@ func DetectProgrammingLanguages(envData *types.EnvironmentData) {
 		{Name: "PostgreSQL", Command: "psql", VersionArg: "--version", VersionRegex: regexp.MustCompile(`psql \(PostgreSQL\) ([\d\.]+)`)},
 		{Name: "MySQL", Command: "mysql", VersionArg: "--version", VersionRegex: regexp.MustCompile(`Ver ([\d\.]+)`)},
 	}
-	detectExecutables("programming languages", languages, envData.ConfiguredLanguages)
+	detectExecutables(languages, envData.ConfiguredLanguages)
 }
 
 // DetectTools finds common development tools and their versions.
@@ -296,7 +296,7 @@ func DetectTools(envData *types.EnvironmentData) {
 		{Name: "Jest", Command: "jest", VersionArg: "--version", VersionRegex: regexp.MustCompile(`([\d\.]+)`)},
 		{Name: "Pytest", Command: "pytest", VersionArg: "--version", VersionRegex: regexp.MustCompile(`pytest ([\d\.]+)`)},
 	}
-	detectExecutables("development tools", tools, envData.Tools)
+	detectExecutables(tools, envData.Tools)
 }
 
 // DetectEditors finds common code editors and IDEs.
@@ -333,5 +333,5 @@ func DetectEditors(envData *types.EnvironmentData) {
 		{Name: "Windsurf", Command: "windsurf", VersionArg: "--version", VersionRegex: regexp.MustCompile(`Windsurf ([\d\.]+)`)},
 		{Name: "Cursor", Command: "cursor", VersionArg: "--version", VersionRegex: regexp.MustCompile(`Cursor ([\d\.]+)`)},
 	}
-	detectExecutables("code editors", editors, envData.CodeEditors)
+	detectExecutables(editors, envData.CodeEditors)
 }

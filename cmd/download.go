@@ -20,7 +20,10 @@ var downloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download an environment from Supabase",
 	Long: `Downloads an environment configuration from Supabase by ID.
-The environment can be saved to a file or printed to stdout.`,
+The environment can be saved to a file or printed to stdout.
+
+Requires authentication.`,
+	PreRunE: requireAuth,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Validate config
 		if err := cfg.Validate(); err != nil {

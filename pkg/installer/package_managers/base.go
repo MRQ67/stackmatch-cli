@@ -39,10 +39,3 @@ func (b *basePackageManager) runCommand(ctx context.Context, args ...string) (st
 	return string(output), nil
 }
 
-// checkIfInstalled checks if a package is already installed
-func (b *basePackageManager) checkIfInstalled(ctx context.Context, pkg string) (bool, error) {
-	// Default implementation - can be overridden by specific package managers
-	// This is a simple check that might not work for all package managers
-	_, err := b.runCommand(ctx, "list", pkg)
-	return err == nil, nil
-}

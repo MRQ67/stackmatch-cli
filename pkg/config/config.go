@@ -1,52 +1,72 @@
 package config
 
 import (
-	"log"
+	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/joho/godotenv"
 )
 
 // Config holds the application configuration
 type Config struct {
-	SupabaseURL    string
-	SupabaseAPIKey string
+	SupabaseURL    string `json:"supabase_url,omitempty"`
+	SupabaseAPIKey string `json:"supabase_key,omitempty"`
+	configPath     string `json:"-"` // Path to config file, not serialized
 }
 
-// New creates a new configuration with values from environment variables
+// New creates a new configuration with values from environment variables and config file
 func New() *Config {
 	// Load .env file if it exists
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: Error loading .env file: %v", err)
+	_ = godotenv.Load()
+
+	// Get config directory
+	configDir, _ := os.UserConfigDir()
+	if configDir == "" {
+		configDir = "."
 	}
 
-	url := os.Getenv("SUPABASE_URL")
-	key := os.Getenv("SUPABASE_ANON_KEY")
+	// Ensure stackmatch directory exists
+	configDir = filepath.Join(configDir, "stackmatch")
+	_ = os.MkdirAll(configDir, 0755)
 
-	log.Printf("Debug - Supabase URL: %s", url)
-	log.Printf("Debug - Supabase Key: %s... (first 10 chars)", safeSubstring(key, 0, 10))
-
-	return &Config{
-		SupabaseURL:    url,
-		SupabaseAPIKey: key,
+	configPath := filepath.Join(configDir, "config.json")
+	cfg := &Config{
+		SupabaseURL:    os.Getenv("SUPABASE_URL"),
+		SupabaseAPIKey: os.Getenv("SUPABASE_ANON_KEY"),
+		configPath:     configPath,
 	}
+
+	// Try to load existing config
+	if data, err := os.ReadFile(configPath); err == nil {
+		_ = json.Unmarshal(data, cfg)
+	}
+
+	return cfg
 }
 
-// safeSubstring returns a substring of s from start to end, handling edge cases
-func safeSubstring(s string, start, end int) string {
-	if s == "" {
-		return ""
+
+// Save writes the configuration to disk
+func (c *Config) Save() error {
+	if c.configPath == "" {
+		return nil // Skip if no config path is set (e.g., in tests)
 	}
-	if start > len(s) {
-		start = len(s)
+
+	// Don't save sensitive information
+	saveCfg := *c
+	saveCfg.SupabaseAPIKey = ""
+
+	data, err := json.MarshalIndent(saveCfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	if end > len(s) {
-		end = len(s)
+
+	if err := os.WriteFile(c.configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
-	if start > end {
-		start = end
-	}
-	return s[start:end]
+
+	return nil
 }
 
 // Validate checks if the required configuration values are set
@@ -54,10 +74,17 @@ func (c *Config) Validate() error {
 	if c.SupabaseURL == "" {
 		return ErrMissingSupabaseURL
 	}
+
 	if c.SupabaseAPIKey == "" {
 		return ErrMissingSupabaseAPIKey
 	}
+
 	return nil
+}
+
+// IsConfigured returns true if the required configuration is present
+func (c *Config) IsConfigured() bool {
+	return c.SupabaseURL != "" && c.SupabaseAPIKey != ""
 }
 
 // Error definitions

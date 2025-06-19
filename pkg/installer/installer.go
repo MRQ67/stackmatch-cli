@@ -3,7 +3,6 @@ package installer
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"runtime"
 	"strings"
 
@@ -77,15 +76,6 @@ func installWithMapping(ctx context.Context, installerInst Installer, pkg string
 	return nil
 }
 
-// runCommand is a helper function to run shell commands
-func runCommand(ctx context.Context, name string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, string(output))
-	}
-	return string(output), nil
-}
 
 // InstallPackage installs a package using the best available package manager
 func InstallPackage(ctx context.Context, pkg string) error {

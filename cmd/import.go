@@ -28,7 +28,16 @@ var importCmd = &cobra.Command{
 By default, this command runs in dry-run mode, showing what would be installed
 without making any changes. Use the --no-dry-run flag to perform the actual installation.
 
+When using --source=supabase, authentication is required.
+
 You can specify either a local file or use --from-supabase with --id to import from Supabase.`,
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// Only require auth if using Supabase source
+		if sourceSupabase {
+			return requireAuth(cmd, args)
+		}
+		return nil
+	},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if !sourceSupabase && len(args) != 1 {
 			return fmt.Errorf("requires a filename argument when not using --from-supabase")
