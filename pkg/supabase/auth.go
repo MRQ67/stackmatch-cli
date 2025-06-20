@@ -3,6 +3,7 @@ package supabase
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/supabase-community/gotrue-go/types"
@@ -37,7 +38,18 @@ func (a *AuthService) LoginWithEmail(email, password string) (*types.Session, er
 	// Sign in with email and password
 	resp, err := a.client.Auth.SignInWithEmailPassword(email, password)
 	if err != nil {
-		return nil, err
+		errMsg := strings.ToLower(err.Error())
+		switch {
+		case strings.Contains(errMsg, "invalid login credentials") || 
+			 strings.Contains(errMsg, "invalid email or password"):
+			return nil, fmt.Errorf("invalid email or password")
+		case strings.Contains(errMsg, "email not confirmed"):
+			return nil, fmt.Errorf("please check your email and confirm your account before logging in")
+		case strings.Contains(errMsg, "invalid email"):
+			return nil, fmt.Errorf("please enter a valid email address")
+		default:
+			return nil, fmt.Errorf("login failed: %v", err)
+		}
 	}
 
 	// Enable auto-refresh for the session

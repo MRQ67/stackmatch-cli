@@ -2,17 +2,16 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"syscall"
 	"time"
 
 	"github.com/MRQ67/stackmatch-cli/pkg/auth"
-	"github.com/MRQ67/stackmatch-cli/pkg/supabase"
+	supabase "github.com/MRQ67/stackmatch-cli/pkg/supabase"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
-
-
 
 var (
 	email    string
@@ -67,18 +66,19 @@ var loginCmd = &cobra.Command{
 
 		password := string(bytePassword)
 
-		// Initialize auth service
-		authService, err := supabase.NewAuthService(supabaseURL, supabaseAPIKey)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error initializing auth service: %v\n", err)
-			os.Exit(1)
+		// Use the global supabase client that was already initialized
+		if supabaseClient == nil {
+			log.Fatal("Supabase client is not initialized. Please check your configuration.")
 		}
+
+		// Create auth service with the existing client
+		authService := supabase.NewAuthServiceWithClient(supabaseClient.Client)
 
 		// Call the auth service to handle login
 		session, err := authService.LoginWithEmail(email, password)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Login failed: %v\n", err)
-			os.Exit(1)
+			// The error is already formatted by LoginWithEmail
+			log.Fatalf("Login failed: %v", err)
 		}
 
 		// Convert session to auth.User and save

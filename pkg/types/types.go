@@ -24,6 +24,17 @@ type SystemInfo struct {
 	Hostname    string `json:"hostname,omitempty"` // Added Hostname as it's often useful
 }
 
+// EnvironmentHistory represents a version history entry for an environment
+type EnvironmentHistory struct {
+	ID            string    `json:"id"`
+	EnvironmentID string    `json:"environment_id"`
+	Name          string    `json:"name"`
+	Version       int       `json:"version"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedBy     string    `json:"updated_by"`
+	Data          string    `json:"data"` // JSON string of the environment data
+}
+
 // Tool represents a detected development tool.
 // We might expand this later if more structured info per tool is needed.
 // For now, a simple map[string]string in EnvironmentData.Tools is used.

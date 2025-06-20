@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
+	"github.com/spf13/pflag"
 )
 
 // Config holds the application configuration
@@ -85,6 +86,32 @@ func (c *Config) Validate() error {
 // IsConfigured returns true if the required configuration is present
 func (c *Config) IsConfigured() bool {
 	return c.SupabaseURL != "" && c.SupabaseAPIKey != ""
+}
+
+// BindFlags binds command-line flags to the configuration
+func (c *Config) BindFlags(flags *pflag.FlagSet) error {
+	if flags.Changed("supabase-url") {
+		url, err := flags.GetString("supabase-url")
+		if err != nil {
+			return fmt.Errorf("failed to get supabase-url flag: %w", err)
+		}
+		c.SupabaseURL = url
+	}
+
+	if flags.Changed("supabase-key") {
+		key, err := flags.GetString("supabase-key")
+		if err != nil {
+			return fmt.Errorf("failed to get supabase-key flag: %w", err)
+		}
+		c.SupabaseAPIKey = key
+	}
+
+	// Save the updated configuration
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	return nil
 }
 
 // Error definitions

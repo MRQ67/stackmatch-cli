@@ -9,6 +9,7 @@ import (
 	"github.com/MRQ67/stackmatch-cli/pkg/config"
 	"github.com/MRQ67/stackmatch-cli/pkg/supabase"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -38,25 +39,54 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&supabaseURL, "supabase-url", "u", cfg.SupabaseURL, "Supabase project URL")
 	rootCmd.PersistentFlags().StringVarP(&supabaseAPIKey, "supabase-key", "k", cfg.SupabaseAPIKey, "Supabase API key")
 
+	// Bind flags to config
+	if err := cfg.BindFlags(pflag.CommandLine); err != nil {
+		log.Fatalf("Failed to bind flags: %v", err)
+	}
+
+	// Initialize Supabase client
+	var err error
+	supabaseClient, err = initSupabase()
+	if err != nil {
+		log.Fatalf("Failed to initialize Supabase client: %v", err)
+	}
+
+	// Add commands directly to root
+	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(loginCmd)
+	rootCmd.AddCommand(logoutCmd)
+	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(whoamiCmd)
+	rootCmd.AddCommand(pushCmd)
+	rootCmd.AddCommand(pullCmd)
+	rootCmd.AddCommand(cloneCmd)
+	rootCmd.AddCommand(logCmd)
+	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(exportCmd)
+
 	// Persistent pre-run to validate config and handle flags
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		// Update config from flags if provided
-		if cmd.Flags().Changed("supabase-url") {
-			cfg.SupabaseURL = supabaseURL
-		}
-		if cmd.Flags().Changed("supabase-key") {
-			cfg.SupabaseAPIKey = supabaseAPIKey
+		if err := cfg.BindFlags(pflag.CommandLine); err != nil {
+			return fmt.Errorf("failed to bind flags: %w", err)
 		}
 
 		// Skip config validation for auth commands
 		switch cmd.Name() {
-		case "login", "logout", "whoami":
+		case "login", "logout", "whoami", "register":
 			return nil
 		}
 
-		// For other commands, validate config
+		// Validate config for other commands
 		if err := cfg.Validate(); err != nil {
 			return fmt.Errorf("configuration error: %w", err)
+		}
+
+		// Initialize Supabase client
+		var err error
+		supabaseClient, err = initSupabase()
+		if err != nil {
+			return fmt.Errorf("failed to initialize Supabase client: %w", err)
 		}
 
 		return nil
@@ -82,7 +112,13 @@ func initSupabase() (*supabase.Client, error) {
 		return nil, fmt.Errorf("supabase URL and API key must be set")
 	}
 
-	client, err := supabase.NewClient(supabaseURL, supabaseAPIKey)
+	// Get access token if user is authenticated
+	var accessToken string
+	if user := auth.GetCurrentUser(); user != nil {
+		accessToken = user.AccessToken
+	}
+
+	client, err := supabase.NewClient(supabaseURL, supabaseAPIKey, accessToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Supabase client: %w", err)
 	}
