@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/MRQ67/stackmatch-cli/pkg/auth"
@@ -11,6 +14,24 @@ import (
 	"github.com/MRQ67/stackmatch-cli/pkg/types"
 	"github.com/spf13/cobra"
 )
+
+// promptForVisibility asks the user if the environment should be public
+func promptForVisibility() (bool, error) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("Make this environment public? (y/n): ")
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(strings.ToLower(input))
+		switch input {
+		case "y", "yes":
+			return true, nil
+		case "n", "no":
+			return false, nil
+		default:
+			fmt.Println("Please enter 'y' for yes or 'n' for no")
+		}
+	}
+}
 
 // scanEnvironment scans the current development environment
 func scanEnvironment() *types.EnvironmentData {
@@ -45,11 +66,18 @@ func scanEnvironment() *types.EnvironmentData {
 	return envData
 }
 
+var (
+	isPublic bool
+)
+
 var pushCmd = &cobra.Command{
-	Use:   "push",
+	Use:   "push [name] [flags]",
 	Short: "Scan & push environment data to Supabase",
 	Long: `Scans the current development environment and uploads the configuration to Supabase.
-This requires authentication and Supabase URL/API key to be set.`,
+This requires authentication and Supabase URL/API key to be set.
+
+If a name is not provided as an argument, you will be prompted to enter one.`,
+	Args:  cobra.MaximumNArgs(1),
 	PreRunE: requireAuth,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Use the global authenticated Supabase client
@@ -71,17 +99,53 @@ This requires authentication and Supabase URL/API key to be set.`,
 			log.Fatal("Not authenticated. Please run 'stackmatch login' first.")
 		}
 
+		// Get environment name from args or prompt
+		envName := ""
+		if len(args) > 0 {
+			envName = args[0]
+		}
+
+		// If no name provided, prompt for one
+		if envName == "" {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Enter a name for this environment: ")
+			input, _ := reader.ReadString('\n')
+			envName = strings.TrimSpace(input)
+
+			if envName == "" {
+				envName = fmt.Sprintf("Environment %s", time.Now().Format("2006-01-02 15:04"))
+			}
+		}
+
+		// Get visibility setting
+		isEnvPublic := isPublic
+		if !cmd.Flags().Changed("public") {
+			// Prompt for visibility if not set via flag
+			var err error
+			isEnvPublic, err = promptForVisibility()
+			if err != nil {
+				log.Fatalf("Failed to get visibility preference: %v", err)
+			}
+		}
+
+		// Add user to context
+		ctx := context.WithValue(context.Background(), "user", user)
+
 		// Upload to Supabase
-		ctx := context.Background()
-		id, err := supabaseClient.SaveEnvironment(ctx, envData)
+		id, err := supabaseClient.SaveEnvironment(ctx, envData, envName, isEnvPublic)
 		if err != nil {
 			log.Fatalf("Failed to save environment: %v", err)
 		}
 
-		fmt.Printf("Successfully saved environment with ID: %s\n", id)
+		visibility := "private"
+		if isEnvPublic {
+			visibility = "public"
+		}
+		fmt.Printf("Successfully saved %s environment '%s' with ID: %s\n", visibility, envName, id)
 	},
 }
 
 func init() {
+	pushCmd.Flags().BoolVarP(&isPublic, "public", "p", false, "Make the environment publicly accessible")
 	rootCmd.AddCommand(pushCmd)
 }

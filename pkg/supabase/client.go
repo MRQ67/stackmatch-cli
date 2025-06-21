@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/MRQ67/stackmatch-cli/pkg/auth"
 	"github.com/MRQ67/stackmatch-cli/pkg/types"
 	supabase "github.com/supabase-community/supabase-go"
 )
@@ -46,73 +47,74 @@ func NewClient(url, key string, accessToken ...string) (*Client, error) {
 	}, nil
 }
 
-// SaveEnvironment saves an environment to Supabase
-func (c *Client) SaveEnvironment(ctx context.Context, env *types.EnvironmentData) (string, error) {
+// SaveEnvironment saves an environment to Supabase with the given name and visibility
+// If name is empty, it will use a default name
+// isPublic determines if the environment is visible to other users
+func (c *Client) SaveEnvironment(ctx context.Context, env *types.EnvironmentData, name string, isPublic bool) (string, error) {
+	// Get the current user ID from the context
+	userID := ""
+	if user, ok := ctx.Value("user").(*auth.User); ok && user != nil {
+		userID = user.ID
+	}
+
+	if userID == "" {
+		return "", fmt.Errorf("user ID not found in context")
+	}
+
 	// Set the scan date to now if not set
 	if env.ScanDate.IsZero() {
 		env.ScanDate = time.Now()
 	}
 
+	// Convert environment data to JSON
 	envJSON, err := json.Marshal(env)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal environment data: %w", err)
 	}
 
-	// Log the data we're about to send (first 200 chars to avoid huge logs)
-	logStr := string(envJSON)
-	if len(logStr) > 200 {
-		logStr = logStr[:200] + "..."
-	}
-	log.Printf("Saving environment data (truncated): %s", logStr)
+	// Log the data being saved (truncated for brevity)
+	log.Printf("Saving environment data (truncated): %s", string(envJSON)[:min(100, len(envJSON))])
 
-	// Create a map with all required fields for the environments table
-	// Note: user_id is automatically set by the database trigger
+	// Use provided name or default to a generic name with timestamp
+	if name == "" {
+		name = fmt.Sprintf("Environment %s", time.Now().Format("2006-01-02 15:04"))
+	}
+
+	// Prepare the data to insert
 	insertData := map[string]interface{}{
-		"name":      "My Environment", // Default name, could be made configurable
+		"name":      name,
 		"data":      json.RawMessage(envJSON),
-		"is_public": false, // Default to private
+		"is_public": isPublic,
+		"user_id":   userID,
 	}
 
-	// Try to insert the data
+	// Create a new client with the service role key
+	serviceClient, err := NewClient(c.url, c.key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create service client: %w", err)
+	}
+
+	// Insert the data using the service client
 	var result []map[string]interface{}
-	_, err = c.From("environments").
-		Insert(insertData, false, "", "", "*").
+	_, err = serviceClient.Client.From("environments").
+		Insert(insertData, false, "", "", "").
 		ExecuteTo(&result)
 
 	if err != nil {
-		log.Printf("Error inserting into Supabase: %v", err)
-		return "", fmt.Errorf("failed to save environment to Supabase: %w", err)
+		return "", fmt.Errorf("failed to save environment: %w", err)
 	}
 
-	log.Printf("Insert result: %+v", result)
-
-	// Try to get the ID from the result if available
-	if len(result) > 0 {
-		if id, ok := result[0]["id"].(string); ok && id != "" {
-			log.Printf("Successfully saved environment with ID: %s", id)
-			return id, nil
-		}
+	// Extract the ID from the result
+	if len(result) == 0 || result[0]["id"] == nil {
+		return "", fmt.Errorf("no ID returned from insert")
 	}
 
-	// If we couldn't get the ID from the result, try to fetch the most recent environment
-	var dbEnvs []map[string]interface{}
-	_, err = c.From("environments").
-		Select("id", "", false).
-		Order("created_at", nil).
-		Limit(1, "").
-		ExecuteTo(&dbEnvs)
-	
-	if err != nil {
-		log.Printf("Error fetching recent environments: %v", err)
-	} else if len(dbEnvs) > 0 {
-		if id, ok := dbEnvs[0]["id"].(string); ok && id != "" {
-			log.Printf("Found recent environment with ID: %s", id)
-			return id, nil
-		}
+	envID, ok := result[0]["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("invalid ID type returned: %T", result[0]["id"])
 	}
 
-	log.Println("Warning: Could not retrieve ID of inserted record, but insert may have succeeded")
-	return "unknown-id", nil
+	return envID, nil
 }
 
 // envRow represents a row in the environments table
@@ -200,10 +202,19 @@ func (c *Client) GetEnvironmentHistory(ctx context.Context, envID string, limit 
 	return history, nil
 }
 
+// envWithData represents the structure of an environment row in the database
+type envWithData struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	UserID    string          `json:"user_id"`
+	IsPublic  bool            `json:"is_public"`
+	Data      json.RawMessage `json:"data"`
+	CreatedAt string          `json:"created_at"`
+	UpdatedAt string          `json:"updated_at"`
+}
+
 // FindEnvironmentByUserAndName finds an environment by username and environment name
 func (c *Client) FindEnvironmentByUserAndName(ctx context.Context, username, envName string) (*types.EnvironmentData, error) {
-	var envs []types.EnvironmentData
-
 	// First, find the user ID by username
 	var users []map[string]interface{}
 	_, err := c.From("profiles").
@@ -224,20 +235,27 @@ func (c *Client) FindEnvironmentByUserAndName(ctx context.Context, username, env
 		return nil, fmt.Errorf("invalid user ID format")
 	}
 
-	// Then find the environment by name and user ID
+	// Find the environment by name and user ID
+	var envRows []envWithData
 	_, err = c.From("environments").
 		Select("*", "exact", false).
 		Eq("name", envName).
 		Eq("user_id", userID).
-		ExecuteTo(&envs)
+		ExecuteTo(&envRows)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find environment: %w", err)
 	}
 
-	if len(envs) == 0 {
+	if len(envRows) == 0 {
 		return nil, fmt.Errorf("environment '%s' not found for user '%s'", envName, username)
 	}
 
-	return &envs[0], nil
+	// Unmarshal the JSON data into EnvironmentData
+	var envData types.EnvironmentData
+	if err := json.Unmarshal(envRows[0].Data, &envData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal environment data: %w", err)
+	}
+
+	return &envData, nil
 }

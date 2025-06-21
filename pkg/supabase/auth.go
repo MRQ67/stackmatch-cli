@@ -3,6 +3,7 @@ package supabase
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -50,6 +51,26 @@ func (a *AuthService) LoginWithEmail(email, password string) (*types.Session, er
 		default:
 			return nil, fmt.Errorf("login failed: %v", err)
 		}
+	}
+
+	// If user metadata is nil, initialize it
+	if resp.User.UserMetadata == nil {
+		resp.User.UserMetadata = make(map[string]interface{})
+	}
+
+	// If username is not set in metadata, use the part before @ in the email
+	if _, ok := resp.User.UserMetadata["username"].(string); !ok && resp.User.Email != "" {
+		// Extract the part before @ for the username
+		username := strings.Split(resp.User.Email, "@")[0]
+		// Clean the username to only allow letters, numbers, and underscores
+		re := regexp.MustCompile(`[^a-zA-Z0-9_]`)
+		username = re.ReplaceAllString(username, "_")
+		
+		// Update the user metadata with the generated username
+		resp.User.UserMetadata["username"] = username
+		
+		// Note: We can't update the user metadata here directly as we don't have admin access
+		// The username will be updated on the next successful login
 	}
 
 	// Enable auto-refresh for the session
@@ -111,16 +132,19 @@ func (a *AuthService) IsSessionValid() bool {
 	return err == nil && user != nil && user.ID != uuid.Nil
 }
 
-// RegisterWithEmail creates a new user account with email and password
-func (a *AuthService) RegisterWithEmail(email, password string) (*types.User, error) {
+// RegisterWithEmail creates a new user account with email, password, and username
+func (a *AuthService) RegisterWithEmail(email, password, username string) (*types.User, error) {
 	if email == "" || password == "" {
 		return nil, errors.New("email and password are required")
 	}
 
-	// Create a signup request
+	// Create a signup request with email, password, and user metadata
 	signupReq := types.SignupRequest{
 		Email:    email,
 		Password: password,
+		Data: map[string]interface{}{
+			"username": username,
+		},
 	}
 
 	// Create a new user with email and password

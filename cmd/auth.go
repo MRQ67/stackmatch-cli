@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/MRQ67/stackmatch-cli/pkg/auth"
-	supabase "github.com/MRQ67/stackmatch-cli/pkg/supabase"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/MRQ67/stackmatch-cli/pkg/auth"
+	"github.com/MRQ67/stackmatch-cli/pkg/supabase"
 )
 
 var (
@@ -145,36 +148,76 @@ var registerCmd = &cobra.Command{
 		}
 
 		// Prompt for email
-		fmt.Print("Email: ")
 		var email string
-		_, err := fmt.Scanln(&email)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading email: %v\n", err)
-			os.Exit(1)
+		for {
+			fmt.Print("Email: ")
+			_, err := fmt.Scanln(&email)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading email: %v\n", err)
+				continue
+			}
+			// Basic email validation
+			if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+				fmt.Fprintln(os.Stderr, "Please enter a valid email address")
+				continue
+			}
+			break
 		}
 
 		// Prompt for password (hidden)
-		fmt.Print("Password: ")
-		bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading password: %v\n", err)
-			os.Exit(1)
+		var password string
+		for {
+			fmt.Print("Password (min 6 characters): ")
+			bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+			fmt.Println() // Print newline after password input
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error reading password: %v\n", err)
+				continue
+			}
+			password = string(bytePassword)
+			if len(password) < 6 {
+				fmt.Fprintln(os.Stderr, "Password must be at least 6 characters long")
+				continue
+			}
+			break
 		}
-		fmt.Println() // Print newline after password input
 
-		password := string(bytePassword)
+		// Compile the username validation regex once
+		usernameRegex := regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+
+		// Prompt for username
+		var username string
+		for {
+			fmt.Print("Username (letters, numbers, and underscores only): ")
+			_, err := fmt.Scanln(&username)
+			if err != nil && err.Error() != "unexpected newline" {
+				fmt.Fprintf(os.Stderr, "Error reading username: %v\n", err)
+				continue
+			}
+			// Basic username validation
+			if !usernameRegex.MatchString(username) || username == "" {
+				fmt.Fprintln(os.Stderr, "Username can only contain letters, numbers, and underscores")
+				continue
+			}
+			break
+		}
 
 		// Initialize auth service
 		authService := supabase.NewAuthServiceWithClient(supabaseClient.Client)
 
 		// Call the auth service to handle registration
-		_, err = authService.RegisterWithEmail(email, password)
+		user, err := authService.RegisterWithEmail(email, password, username)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Registration failed: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("Registration successful! Please check your email (%s) to verify your account.\n", email)
+		// If we get here, registration was successful
+		fmt.Printf("Registration successful! Welcome, %s!\n", username)
+		if user != nil {
+			fmt.Printf("User ID: %s\n", user.ID)
+		}
+		fmt.Printf("Please check your email (%s) to verify your account.\n", email)
 	},
 }
 

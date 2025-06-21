@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 type User struct {
 	ID           string    `json:"id"`
 	Email        string    `json:"email"`
+	Username     string    `json:"username,omitempty"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	ExpiresAt    time.Time `json:"expires_at"`
@@ -39,9 +41,30 @@ func FromSupabaseSession(session *types.Session) *User {
 		expiresIn = int(session.ExpiresIn)
 	}
 
+	// Extract username from user metadata if available
+	username := ""
+	if session.User.UserMetadata != nil {
+		// Marshal the UserMetadata to JSON and then unmarshal it to a map
+		metadataJSON, err := json.Marshal(session.User.UserMetadata)
+		if err == nil {
+			var meta map[string]interface{}
+			if err := json.Unmarshal(metadataJSON, &meta); err == nil {
+				if uname, ok := meta["username"].(string); ok {
+					username = uname
+				}
+			}
+		}
+
+		// If username is still empty, try to get it from the email
+		if username == "" && session.User.Email != "" {
+			username = session.User.Email
+		}
+	}
+
 	return &User{
 		ID:           userID,
 		Email:        session.User.Email,
+		Username:     username,
 		AccessToken:  session.AccessToken,
 		RefreshToken: session.RefreshToken,
 		ExpiresAt:    time.Now().Add(time.Second * time.Duration(expiresIn)),
@@ -179,6 +202,17 @@ func tryRefreshSession(user *User) *User {
 // IsAuthenticated checks if there is a valid user session
 func IsAuthenticated() bool {
 	return GetCurrentUser() != nil
+}
+
+// GetUserFromContext retrieves the user from a context
+func GetUserFromContext(ctx context.Context) *User {
+	if ctx == nil {
+		return nil
+	}
+	if user, ok := ctx.Value("user").(*User); ok {
+		return user
+	}
+	return nil
 }
 
 // RequireAuth returns an error if no user is authenticated

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -16,7 +17,7 @@ var cloneCmd = &cobra.Command{
 	Short: "Clone another user's environment",
 	Long: `Clones an environment from another user and applies it locally.
 Format should be 'username/env-name'.`,
-	Args:  cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	PreRunE: requireAuth,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Parse username and env name
@@ -35,7 +36,7 @@ Format should be 'username/env-name'.`,
 
 		// Find environment by username and name
 		ctx := context.Background()
-		env, err := supabaseClient.FindEnvironmentByUserAndName(ctx, username, envName)
+		sourceEnv, err := supabaseClient.FindEnvironmentByUserAndName(ctx, username, envName)
 		if err != nil {
 			log.Fatalf("Failed to find environment: %v", err)
 		}
@@ -46,14 +47,17 @@ Format should be 'username/env-name'.`,
 			log.Fatal("Not authenticated. Please run 'stackmatch login' first.")
 		}
 
-		// Save as current user's environment
-		envID, err := supabaseClient.SaveEnvironment(ctx, env)
+		// Add user to context
+		ctx = context.WithValue(ctx, "user", user)
+
+		// Convert the environment data to JSON for display
+		envJSON, err := json.MarshalIndent(sourceEnv, "", "  ")
 		if err != nil {
-			log.Fatalf("Failed to save environment: %v", err)
+			log.Fatalf("Failed to format environment data: %v", err)
 		}
 
-		fmt.Printf("Successfully cloned environment '%s' from user '%s' with ID: %s\n", 
-			envName, username, envID)
+		// Print the environment data
+		fmt.Printf("Environment '%s' from user '%s':\n%s\n", envName, username, string(envJSON))
 	},
 }
 
