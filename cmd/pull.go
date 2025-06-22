@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/MRQ67/stackmatch-cli/pkg/supabase"
+	"github.com/MRQ67/stackmatch-cli/pkg/auth"
 	"github.com/spf13/cobra"
 )
 
@@ -15,48 +17,101 @@ var (
 	pullOutput string
 )
 
+// envRow represents a row from the environments table
+type envRow struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Data      json.RawMessage `json:"data"`
+	UserID    string          `json:"user_id"`
+	IsPublic  bool            `json:"is_public"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
 var pullCmd = &cobra.Command{
-	Use:   "pull <environment-id>",
-	Short: "Download an environment from Supabase",
-	Long: `Downloads an environment configuration from Supabase by ID.
-The environment can be saved to a file or printed to stdout.`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "pull [environment-name]",
+	Short: "Pull your latest or a specific environment",
+	Long: `Pulls your most recent environment or a specific named environment.
+
+Examples:
+  stackmatch pull           # Pull latest environment
+  stackmatch pull my-env    # Pull environment named 'my-env'
+`,
+	Args:  cobra.MaximumNArgs(1),
 	PreRunE: requireAuth,
-	Run: func(cmd *cobra.Command, args []string) {
-		// Get environment ID from args
-		envID := args[0]
+	Run: runPullCommand,
+}
 
-		// Initialize Supabase client
-		supabaseClient, err := supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseAPIKey)
-		if err != nil {
-			log.Fatalf("Failed to initialize Supabase client: %v", err)
-		}
+func runPullCommand(cmd *cobra.Command, args []string) {
+	// Get current user
+	currentUser := auth.GetCurrentUser()
+	if currentUser == nil {
+		log.Fatal("Not authenticated. Please run 'stackmatch login' first.")
+	}
 
-		// Download from Supabase
-		ctx := context.Background()
-		env, err := supabaseClient.GetEnvironment(ctx, envID)
-		if err != nil {
-			log.Fatalf("Failed to get environment: %v", err)
-		}
+	// Initialize Supabase client
+	supabaseClient, err := supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseAPIKey)
+	if err != nil {
+		log.Fatalf("Failed to initialize Supabase client: %v", err)
+	}
 
-		// Convert to JSON
-		envJSON, err := json.MarshalIndent(env, "", "  ")
-		if err != nil {
-			log.Fatalf("Failed to marshal environment: %v", err)
-		}
+	ctx := context.Background()
+	var envData json.RawMessage
+	envName := ""
+	if len(args) > 0 {
+		envName = args[0]
+	}
 
-		// Output to file or stdout
-		if pullOutput != "" {
-			if err := os.WriteFile(pullOutput, envJSON, 0o644); err != nil {
-				log.Fatalf("Failed to write to file: %v", err)
-			}
-			fmt.Printf("Environment saved to %s\n", pullOutput)
-		} else {
-			fmt.Println(string(envJSON))
+	// Query for environment
+	env, err := getEnvironment(ctx, supabaseClient, currentUser.ID, envName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Extract environment data
+	envData = env.Data
+
+	// Output based on flags
+	if pullOutput != "" {
+		if err := os.WriteFile(pullOutput, envData, 0o644); err != nil {
+			log.Fatalf("Failed to write to file: %v", err)
 		}
-	},
+		fmt.Printf(" Environment '%s' saved to %s\n", env.Name, pullOutput)
+	} else {
+		fmt.Println(string(envData))
+	}
+}
+
+// getEnvironment retrieves either the latest or a named environment for the user
+func getEnvironment(ctx context.Context, client *supabase.Client, userID, envName string) (*envRow, error) {
+	var envs []envRow
+	query := client.From("environments").
+		Select("*", "exact", false).
+		Eq("user_id", userID)
+
+	if envName != "" {
+		query = query.Eq("name", envName)
+	}
+
+	_, err := query.
+		Limit(1, "").
+		ExecuteTo(&envs)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query environments: %w", err)
+	}
+
+	if len(envs) == 0 {
+		if envName != "" {
+			return nil, fmt.Errorf("environment '%s' not found. Use 'stackmatch list' to see available environments", envName)
+		}
+		return nil, fmt.Errorf("no environments found. Push your first environment with 'stackmatch push'")
+	}
+
+	return &envs[0], nil
 }
 
 func init() {
+	rootCmd.AddCommand(pullCmd)
 	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "", "Output file (default: stdout)")
 }
