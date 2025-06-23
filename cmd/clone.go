@@ -12,6 +12,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	cloneListOnly bool
+)
+
 var cloneCmd = &cobra.Command{
 	Use:   "clone <username>/<env-name>",
 	Short: "Clone another user's environment",
@@ -57,10 +61,19 @@ Format should be 'username/env-name'.`,
 		}
 
 		// Print the environment data
+		if cloneListOnly {
+			fmt.Printf("Environment: %s\n", envName)
+			fmt.Printf("Owner: %s\n", username)
+			fmt.Printf("Size: %d bytes\n", len(envJSON))
+			return
+		}
+
+		// If not list-only, show the full environment data
 		fmt.Printf("Environment '%s' from user '%s':\n%s\n", envName, username, string(envJSON))
 	},
 }
 
 func init() {
+	cloneCmd.Flags().BoolVarP(&cloneListOnly, "list-only", "l", false, "Only list environment details without cloning")
 	rootCmd.AddCommand(cloneCmd)
 }

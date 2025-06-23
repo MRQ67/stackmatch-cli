@@ -15,6 +15,7 @@ import (
 
 var (
 	pullOutput string
+	listOnly  bool
 )
 
 // envRow represents a row from the environments table
@@ -72,11 +73,20 @@ func runPullCommand(cmd *cobra.Command, args []string) {
 	envData = env.Data
 
 	// Output based on flags
+	if listOnly {
+		// Display environment details
+		fmt.Printf("Environment: %s\n", env.Name)
+		fmt.Printf("ID: %s\n", env.ID)
+		fmt.Printf("Created: %s\n", env.CreatedAt.Format(time.RFC1123))
+		fmt.Printf("Size: %d bytes\n", len(envData))
+		return
+	}
+
 	if pullOutput != "" {
 		if err := os.WriteFile(pullOutput, envData, 0o644); err != nil {
 			log.Fatalf("Failed to write to file: %v", err)
 		}
-		fmt.Printf(" Environment '%s' saved to %s\n", env.Name, pullOutput)
+		fmt.Printf("Environment '%s' saved to %s\n", env.Name, pullOutput)
 	} else {
 		fmt.Println(string(envData))
 	}
@@ -112,6 +122,7 @@ func getEnvironment(ctx context.Context, client *supabase.Client, userID, envNam
 }
 
 func init() {
+	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "", "Save output to a file instead of stdout")
+	pullCmd.Flags().BoolVarP(&listOnly, "list-only", "l", false, "Only list environment details without downloading")
 	rootCmd.AddCommand(pullCmd)
-	pullCmd.Flags().StringVarP(&pullOutput, "output", "o", "", "Output file (default: stdout)")
 }
