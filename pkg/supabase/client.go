@@ -88,15 +88,9 @@ func (c *Client) SaveEnvironment(ctx context.Context, env *types.EnvironmentData
 		"user_id":   userID,
 	}
 
-	// Create a new client with the service role key
-	serviceClient, err := NewClient(c.url, c.key)
-	if err != nil {
-		return "", fmt.Errorf("failed to create service client: %w", err)
-	}
-
-	// Insert the data using the service client
+	// Insert the data using the authenticated client
 	var result []map[string]interface{}
-	_, err = serviceClient.Client.From("environments").
+	_, err = c.Client.From("environments").
 		Insert(insertData, false, "", "", "").
 		ExecuteTo(&result)
 
@@ -157,14 +151,39 @@ func (c *Client) GetEnvironment(ctx context.Context, id string) (*types.Environm
 	return &envData, nil
 }
 
-// ListEnvironments retrieves a list of all environments
-func (c *Client) ListEnvironments(ctx context.Context) ([]types.EnvironmentData, error) {
-	var envs []types.EnvironmentData
+// ListEnvironments retrieves a list of all environments for a given user
+func (c *Client) ListEnvironments(ctx context.Context, userID string) ([]types.Environment, error) {
+	var envRows []envWithData
 
-	// Execute the query
-	_, err := c.From("environments").Select("*", "exact", false).ExecuteTo(&envs)
+	// Execute the query to get environments
+	_, err := c.From("environments").Select("*", "exact", false).Eq("user_id", userID).ExecuteTo(&envRows)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list environments: %w", err)
+	}
+
+	// Get the username from the profiles table
+	var username string
+	var profiles []map[string]interface{}
+	_, err = c.From("profiles").Select("username", "exact", false).Eq("id", userID).ExecuteTo(&profiles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get username: %w", err)
+	}
+	if len(profiles) > 0 {
+		username = profiles[0]["username"].(string)
+	}
+
+	// Create the list of environments
+	var envs []types.Environment
+	for _, row := range envRows {
+		var envData types.EnvironmentData
+		if err := json.Unmarshal(row.Data, &envData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal environment data: %w", err)
+		}
+		envs = append(envs, types.Environment{
+			Name:     row.Name,
+			Username: username,
+			Data:     envData,
+		})
 	}
 
 	return envs, nil
@@ -258,4 +277,53 @@ func (c *Client) FindEnvironmentByUserAndName(ctx context.Context, username, env
 	}
 
 	return &envData, nil
+}
+
+// DeleteEnvironment deletes an environment from Supabase by name
+func (c *Client) DeleteEnvironment(ctx context.Context, name string, userID string) error {
+	// Delete the environment by name and user ID
+	_, _, err := c.From("environments").Delete("", "").Eq("name", name).Eq("user_id", userID).Execute() 
+	if err != nil {
+		return fmt.Errorf("failed to delete environment: %w", err)
+	}
+
+	return nil
+}
+
+// SearchEnvironments searches for public environments in Supabase
+func (c *Client) SearchEnvironments(ctx context.Context, query string) ([]types.Environment, error) {
+	var envRows []envWithData
+
+	// Execute the query to get environments
+	_, err := c.From("environments").Select("*", "exact", false).Eq("is_public", "true").TextSearch("name", query, "", "").ExecuteTo(&envRows)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search environments: %w", err)
+	}
+
+	// Create the list of environments
+	var envs []types.Environment
+	for _, row := range envRows {
+		// Get the username from the profiles table
+		var username string
+		var profiles []map[string]interface{}
+		_, err = c.From("profiles").Select("username", "exact", false).Eq("id", row.UserID).ExecuteTo(&profiles)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get username: %w", err)
+		}
+		if len(profiles) > 0 {
+			username = profiles[0]["username"].(string)
+		}
+
+		var envData types.EnvironmentData
+		if err := json.Unmarshal(row.Data, &envData); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal environment data: %w", err)
+		}
+		envs = append(envs, types.Environment{
+			Name:     row.Name,
+			Username: username,
+			Data:     envData,
+		})
+	}
+
+	return envs, nil
 }

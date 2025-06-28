@@ -35,6 +35,13 @@ type EnvironmentHistory struct {
 	Data          string    `json:"data"` // JSON string of the environment data
 }
 
+// Environment is a struct that holds the environment data, name, and username
+type Environment struct {
+	Name     string            `json:"name"`
+	Username string            `json:"username"`
+	Data     EnvironmentData `json:"data"`
+}
+
 // Tool represents a detected development tool.
 // We might expand this later if more structured info per tool is needed.
 // For now, a simple map[string]string in EnvironmentData.Tools is used.

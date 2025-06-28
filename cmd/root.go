@@ -63,6 +63,9 @@ func init() {
 	rootCmd.AddCommand(logCmd)
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(exportCmd)
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(searchCmd)
 
 	// Persistent pre-run to validate config and handle flags
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
