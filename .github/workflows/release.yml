@@ -56,7 +56,7 @@ jobs:
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      run: go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ6g/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch.exe .
+      run: go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch.exe .
 
     - name: Install WiX Toolset
       run: choco install wixtoolset -y
