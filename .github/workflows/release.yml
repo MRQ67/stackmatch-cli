@@ -70,8 +70,9 @@ jobs:
 
     - name: Build MSI installer
       run: |
-        candle.exe -dSourceDir=. -out installer.wixobj installer/installer.wxs
-        light.exe -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
+        mkdir build
+        candle.exe -dSourceDir=. -out build/installer.wixobj installer/installer.wxs
+        light.exe -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi build/installer.wixobj
       shell: pwsh
 
     - name: Upload MSI artifact
