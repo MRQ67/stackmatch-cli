@@ -16,10 +16,6 @@ var (
 	// Global configuration
 	cfg *config.Config
 
-	// Supabase configuration flags
-	supabaseURL    string
-	supabaseAPIKey string
-
 	// Supabase client
 	supabaseClient *supabase.Client
 
@@ -34,22 +30,6 @@ It aims to eliminate "works on my machine" problems by providing a consistent wa
 func init() {
 	// Initialize config
 	cfg = config.New()
-
-	// Add persistent flags for Supabase
-	rootCmd.PersistentFlags().StringVarP(&supabaseURL, "supabase-url", "u", cfg.SupabaseURL, "Supabase project URL")
-	rootCmd.PersistentFlags().StringVarP(&supabaseAPIKey, "supabase-key", "k", cfg.SupabaseAPIKey, "Supabase API key")
-
-	// Bind flags to config
-	if err := cfg.BindFlags(pflag.CommandLine); err != nil {
-		log.Fatalf("Failed to bind flags: %v", err)
-	}
-
-	// Initialize Supabase client
-	var err error
-	supabaseClient, err = initSupabase()
-	if err != nil {
-		log.Fatalf("Failed to initialize Supabase client: %v", err)
-	}
 
 	// Add commands directly to root
 	rootCmd.AddCommand(versionCmd)
@@ -87,7 +67,7 @@ func init() {
 
 		// Initialize Supabase client
 		var err error
-		supabaseClient, err = initSupabase()
+		supabaseClient, err = initSupabase(cfg.SupabaseURL, cfg.SupabaseAPIKey)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Supabase client: %w", err)
 		}
@@ -110,7 +90,7 @@ func init() {
 }
 
 // initSupabase initializes the Supabase client with the current configuration
-func initSupabase() (*supabase.Client, error) {
+func initSupabase(supabaseURL, supabaseAPIKey string) (*supabase.Client, error) {
 	if supabaseURL == "" || supabaseAPIKey == "" {
 		return nil, fmt.Errorf("supabase URL and API key must be set")
 	}
@@ -139,13 +119,6 @@ func requireAuth(cmd *cobra.Command, args []string) error {
 
 // Execute runs the root command
 func Execute() {
-	// Initialize Supabase client
-	var err error
-	supabaseClient, err = initSupabase()
-	if err != nil {
-		log.Printf("Warning: Failed to initialize Supabase client: %v", err)
-	}
-
 	// Execute the command
 	if err := rootCmd.Execute(); err != nil {
 		log.Printf("Error: %v", err)
