@@ -54,22 +54,21 @@ func init() {
 			return fmt.Errorf("failed to bind flags: %w", err)
 		}
 
-		// Skip config validation for auth commands
-		switch cmd.Name() {
-		case "login", "logout", "whoami", "register":
-			return nil
-		}
-
-		// Validate config for other commands
-		if err := cfg.Validate(); err != nil {
-			return fmt.Errorf("configuration error: %w", err)
-		}
-
 		// Initialize Supabase client
 		var err error
 		supabaseClient, err = initSupabase(cfg.SupabaseURL, cfg.SupabaseAPIKey)
 		if err != nil {
 			return fmt.Errorf("failed to initialize Supabase client: %w", err)
+		}
+
+		// Validate config for all commands except auth commands
+		switch cmd.Name() {
+		case "login", "logout", "whoami", "register":
+			return nil
+		}
+
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("configuration error: %w", err)
 		}
 
 		return nil
