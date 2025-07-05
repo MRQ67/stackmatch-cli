@@ -10,6 +10,12 @@ import (
 	"github.com/spf13/pflag"
 )
 
+var (
+	// These variables are set at build time using ldflags
+	SupabaseURL    string
+	SupabaseAPIKey string
+)
+
 // Config holds the application configuration
 type Config struct {
 	SupabaseURL    string `json:"supabase_url,omitempty"`
@@ -34,14 +40,28 @@ func New() *Config {
 
 	configPath := filepath.Join(configDir, "config.json")
 	cfg := &Config{
-		SupabaseURL:    "https://ewbqgivaolqmqbkejwza.supabase.co",
-		SupabaseAPIKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3YnFnaXZhb2xxbXFia2Vqd3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTk2MDM5ODEsImV4cCI6MjAzNTE3OTk4MX0.p33-b1iL2C_NfB2K1wVgn2D84hrF2u2dJ3J3tT2iB1c",
-		configPath:     configPath,
+		configPath: configPath,
 	}
 
 	// Try to load existing config
 	if data, err := os.ReadFile(configPath); err == nil {
 		_ = json.Unmarshal(data, cfg)
+	}
+
+	// Override with build-time variables if available
+	if SupabaseURL != "" {
+		cfg.SupabaseURL = SupabaseURL
+	}
+	if SupabaseAPIKey != "" {
+		cfg.SupabaseAPIKey = SupabaseAPIKey
+	}
+
+	// Fallback to environment variables if not set by build flags or config
+	if cfg.SupabaseURL == "" {
+		cfg.SupabaseURL = os.Getenv("SUPABASE_URL")
+	}
+	if cfg.SupabaseAPIKey == "" {
+		cfg.SupabaseAPIKey = os.Getenv("SUPABASE_ANON_KEY")
 	}
 
 	return cfg

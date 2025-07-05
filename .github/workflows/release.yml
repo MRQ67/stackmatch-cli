@@ -23,10 +23,13 @@ jobs:
         go-version: '1.21'
 
     - name: Build binaries
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       run: |
-        GOOS=linux GOARCH=amd64 go build -o stackmatch-linux-amd64 .
-        GOOS=darwin GOARCH=amd64 go build -o stackmatch-darwin-amd64 .
-        GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
+        GOOS=linux GOARCH=amd64 go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch-linux-amd64 .
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch-darwin-amd64 .
+        GOOS=darwin GOARCH=arm64 go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch-darwin-arm64 .
 
     - name: Upload non-Windows artifacts
       uses: actions/upload-artifact@v4
@@ -50,7 +53,10 @@ jobs:
         go-version: '1.21'
 
     - name: Build Windows executable
-      run: go build -o stackmatch.exe .
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: go build -ldflags="-X github.com/MRQ67/stackmatch-cli/pkg/config.SupabaseURL=$SUPABASE_URL -X github.com/MRQ6g/stackmatch-cli/pkg/config.SupabaseAPIKey=$SUPABASE_ANON_KEY" -o stackmatch.exe .
 
     - name: Install WiX Toolset
       run: choco install wixtoolset -y
