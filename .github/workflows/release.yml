@@ -55,6 +55,10 @@ jobs:
     - name: Install WiX Toolset
       run: choco install wixtoolset -y
 
+    - name: Add WiX to PATH
+      run: echo "$((Get-Item (Get-Command candle.exe).Source).Directory.FullName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: pwsh
+
     - name: Generate GUIDs and update WXS file
       shell: pwsh
       run: |
@@ -66,8 +70,8 @@ jobs:
 
     - name: Build MSI installer
       run: |
-        & "C:\Program Files (x86)\WiX ToolSet v3.11\bin\candle.exe" -dSourceDir=. -out installer.wixobj installer/installer.wxs
-        & "C:\Program Files (x86)\WiX ToolSet v3.11\bin\light.exe" -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
+        candle.exe -dSourceDir=. -out installer.wixobj installer/installer.wxs
+        light.exe -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
       shell: pwsh
 
     - name: Upload MSI artifact
