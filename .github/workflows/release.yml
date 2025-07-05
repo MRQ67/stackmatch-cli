@@ -3,68 +3,93 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # Triggers on version tags like v1.0.0, v0.1.0, etc.
+      - 'v*'
 
-# THIS IS THE KEY FIX - Add permissions
 permissions:
-  contents: write  # Allows creating releases and uploading assets
-  packages: write  # Optional: if you want to publish packages
+  contents: write
 
 jobs:
-  build-and-release:
+  build-executables:
     runs-on: ubuntu-latest
-    
+    outputs:
+      tag_name: ${{ github.ref_name }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'  # Use your Go version
-        
-    - name: Build binaries
-      run: |
-        # Build for multiple platforms
-        GOOS=linux GOARCH=amd64 go build -o stackmatch-linux-amd64 .
-        GOOS=darwin GOARCH=amd64 go build -o stackmatch-darwin-amd64 .
-        GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
-        GOOS=windows GOARCH=amd64 go build -o stackmatch-windows-amd64.exe .
-        
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          stackmatch-linux-amd64
-          stackmatch-darwin-amd64
-          stackmatch-darwin-arm64
-          stackmatch-windows-amd64.exe
-        generate_release_notes: true
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Alternative: Use GoReleaser for more advanced builds
-  goreleaser:
-    runs-on: ubuntu-latest
-    if: false  # Set to true if you want to use GoReleaser instead
-    
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
-        
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5
+
+    - name: Build binaries
+      run: |
+        GOOS=linux GOARCH=amd64 go build -o stackmatch-linux-amd64 .
+        GOOS=darwin GOARCH=amd64 go build -o stackmatch-darwin-amd64 .
+        GOOS=darwin GOARCH=arm64 go build -o stackmatch-darwin-arm64 .
+
+    - name: Upload non-Windows artifacts
+      uses: actions/upload-artifact@v4
       with:
-        version: latest
-        args: release --clean
+        name: non-windows-build-artifacts
+        path: |
+          stackmatch-linux-amd64
+          stackmatch-darwin-amd64
+          stackmatch-darwin-arm64
+
+  build-msi:
+    runs-on: windows-latest
+    needs: build-executables
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Build Windows executable
+      run: go build -o stackmatch.exe .
+
+    - name: Install WiX Toolset
+      run: choco install wixtoolset -y
+
+    - name: Generate GUIDs and update WXS file
+      shell: pwsh
+      run: |
+        $upgradeCode = New-Guid
+        $componentGuid = New-Guid
+        (Get-Content installer/installer.wxs).Replace('PUT-UPGRADE-CODE-GUID-HERE', $upgradeCode) | Set-Content installer/installer.wxs
+        (Get-Content installer/installer.wxs).Replace('PUT-COMPONENT-GUID-HERE', $componentGuid) | Set-Content installer/installer.wxs
+        echo "Updated WXS file with new GUIDs."
+
+    - name: Build MSI installer
+      run: |
+        & "C:\Program Files (x86)\WiX ToolSet v3.11\bin\candle.exe" -dSourceDir=. -out installer.wixobj installer/installer.wxs
+        & "C:\Program Files (x86)\WiX ToolSet v3.11\bin\light.exe" -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
+      shell: pwsh
+
+    - name: Upload MSI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build-artifacts
+        path: stackmatch-*.msi
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-executables, build-msi]
+    steps:
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist
+        merge-multiple: true # This merges artifacts into a single directory
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
