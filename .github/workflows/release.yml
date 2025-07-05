@@ -77,7 +77,7 @@ jobs:
     - name: Build MSI installer
       run: |
         candle.exe -dSourceDir=. installer/installer.wxs -o installer.wixobj
-        light.exe -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
+        light.exe -ext WixUIExtension -out stackmatch-${{ needs.build-executables.outputs.tag_name }}.msi installer.wixobj
       shell: cmd
 
     - name: Upload MSI artifact
